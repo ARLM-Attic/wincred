@@ -3,7 +3,6 @@ package wincred
 import (
 	"syscall"
 	"unsafe"
-	"C"
 	"encoding/binary"
 	"reflect"
 	"time"
@@ -81,6 +80,14 @@ func utf16ToByte(wstr []uint16) (result []byte) {
 	return
 }
 
+func uintToByteSlice(src uintptr, size uint32) []byte {
+	var s []byte
+	hdr := (*reflect.SliceHeader)(unsafe.Pointer(&s))
+	hdr.Data = uintptr(unsafe.Pointer(src))
+	hdr.Len = int(size)
+	return s
+}
+
 // Convert the given CREDENTIAL struct to a more usable structure
 func nativeToCredential(cred *nativeCREDENTIAL) (result *Credential) {
 	result = new(Credential)
@@ -90,7 +97,7 @@ func nativeToCredential(cred *nativeCREDENTIAL) (result *Credential) {
 	result.UserName = utf16PtrToString(cred.UserName)
 	result.LastWritten = time.Unix(0, cred.LastWritten.Nanoseconds())
 	result.Persist = CredentialPersistence(cred.Persist)
-	result.CredentialBlob = C.GoBytes(unsafe.Pointer(cred.CredentialBlob), C.int(cred.CredentialBlobSize))
+	result.CredentialBlob = uintToByteSlice(cred.CredentialBlob, cred.CredentialBlobSize)
 	result.Attributes = make([]CredentialAttribute, cred.AttributeCount)
 	attrSliceHeader := reflect.SliceHeader{
 		Data: cred.Attributes,
@@ -101,7 +108,7 @@ func nativeToCredential(cred *nativeCREDENTIAL) (result *Credential) {
 	for i, attr := range attrSlice {
 		resultAttr := &result.Attributes[i]
 		resultAttr.Keyword = utf16PtrToString(attr.Keyword)
-		resultAttr.Value = C.GoBytes(unsafe.Pointer(attr.Value), C.int(attr.ValueSize))
+		resultAttr.Value = uintToByteSlice(attr.Value, attr.ValueSize)
 	}
 
 	return result
